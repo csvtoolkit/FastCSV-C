@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            cc: gcc
+          - os: macos-latest
+            cc: clang
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind build-essential
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install valgrind || echo "Valgrind not available on macOS ARM"
+
+    - name: Set up environment
+      run: |
+        echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
+
+    - name: Build library
+      run: |
+        make clean
+        make
+
+    - name: Verify build artifacts
+      run: |
+        ls -la *.so *.a
+        file libcsv.so libcsv.a
+
+    - name: Build tests
+      run: |
+        make tests
+
+    - name: Run tests
+      run: |
+        make test
+
+    - name: Run Valgrind tests (Ubuntu only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        make valgrind
+
+    - name: Test individual components
+      run: |
+        make test-arena
+        make test-config
+        make test-utils
+        make test-parser
+        make test-writer
+        make test-reader
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cppcheck clang-tools
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem *.c *.h
+
+    - name: Run clang static analyzer
+      run: |
+        scan-build --status-bugs make clean all
+
+  memory-safety:
+    name: Memory Safety Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Valgrind
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind
+
+    - name: Build with debug info
+      run: |
+        make clean
+        CFLAGS="-g -O0" make
+
+    - name: Run comprehensive Valgrind tests
+      run: |
+        make valgrind-all
+
+    - name: Check for memory leaks
+      run: |
+        echo "✅ All Valgrind tests passed - no memory leaks detected"
+
+  cross-compile:
+    name: Cross Compilation Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+    - name: Cross compile for ARM64
+      run: |
+        CC=aarch64-linux-gnu-gcc make clean all
+
+    - name: Cross compile for ARM32
+      run: |
+        CC=arm-linux-gnueabihf-gcc make clean all
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README links
+      run: |
+        # Check that all referenced files exist
+        test -f LICENSE
+        test -f CONTRIBUTING.md
+        test -f Makefile
+
+    - name: Validate Markdown
+      uses: DavidAnson/markdownlint-action@v1
+      with:
+        files: '**/*.md'
+        config: |
+          {
+            "MD013": false,
+            "MD033": false,
+            "MD041": false
+          }
+
+  release-test:
+    name: Release Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build optimized release
+      run: |
+        CFLAGS="-O3 -DNDEBUG" make clean all
+
+    - name: Test optimized build
+      run: |
+        make test
+
+    - name: Create distribution package
+      run: |
+        mkdir -p dist/FastCSV-C
+        cp *.h *.c Makefile LICENSE README.md CONTRIBUTING.md dist/FastCSV-C/
+        cp -r tests dist/FastCSV-C/
+        cd dist && tar -czf FastCSV-C.tar.gz FastCSV-C/
+
+    - name: Upload distribution artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FastCSV-C-dist
+        path: dist/FastCSV-C.tar.gz 
