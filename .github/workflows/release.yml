@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build release artifacts
+      run: |
+        make clean
+        CFLAGS="-O3 -DNDEBUG" make
+
+    - name: Run tests
+      run: |
+        make test
+
+    - name: Create source distribution
+      run: |
+        mkdir -p dist/FastCSV-C-${GITHUB_REF#refs/tags/}
+        cp *.h *.c Makefile LICENSE README.md CONTRIBUTING.md dist/FastCSV-C-${GITHUB_REF#refs/tags/}/
+        cp -r tests dist/FastCSV-C-${GITHUB_REF#refs/tags/}/
+        cd dist && tar -czf FastCSV-C-${GITHUB_REF#refs/tags/}.tar.gz FastCSV-C-${GITHUB_REF#refs/tags/}/
+
+    - name: Create binary distribution
+      run: |
+        mkdir -p dist/FastCSV-C-${GITHUB_REF#refs/tags/}-linux-x64
+        cp *.h libcsv.so libcsv.a LICENSE README.md dist/FastCSV-C-${GITHUB_REF#refs/tags/}-linux-x64/
+        cd dist && tar -czf FastCSV-C-${GITHUB_REF#refs/tags/}-linux-x64.tar.gz FastCSV-C-${GITHUB_REF#refs/tags/}-linux-x64/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/FastCSV-C-*.tar.gz
+        body: |
+          ## FastCSV-C Release ${{ github.ref_name }}
+          
+          ### Features
+          - High-performance CSV parsing and writing
+          - Memory-safe with zero leaks (Valgrind validated)
+          - Arena-based memory management
+          - Comprehensive test suite (42+ tests)
+          
+          ### Downloads
+          - **Source Code**: FastCSV-C-${{ github.ref_name }}.tar.gz
+          - **Linux Binary**: FastCSV-C-${{ github.ref_name }}-linux-x64.tar.gz
+          
+          ### Installation
+          ```bash
+          tar -xzf FastCSV-C-${{ github.ref_name }}.tar.gz
+          cd FastCSV-C-${{ github.ref_name }}
+          make
+          make test
+          ```
+          
+          ### What's Changed
+          See the commit history for detailed changes in this release.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

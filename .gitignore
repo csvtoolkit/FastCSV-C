@@ -1,64 +1,45 @@
+# Build artifacts
+*.o
+*.so
+*.a
+*.d
+*.debug.o
+*.gcov.o
+*.gcno
+*.gcda
+*.dep
+*.lo
+
+# Test executables
+test_arena
+test_csv_config
+test_csv_utils
+test_csv_parser
+test_csv_writer
+test_csv_reader
+run_all_tests
+
 # Build directories
 build/
-_build/
-cmake-build-*/
+dist/
+coverage.info
+profile.txt
+gmon.out
+scan-build-results/
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Dependency files
-*.d
-
-# CMake
-CMakeCache.txt
-CMakeFiles/
-CMakeScripts/
-Testing/
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
+# Temporary files
+*.tmp
+*.temp
 *~
 
-# OS specific files
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db 
-*.dep
+
+# Test CSV files generated during testing
+test_*.csv
