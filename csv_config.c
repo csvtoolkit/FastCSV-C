@@ -18,7 +18,7 @@ CSVConfig* csv_config_create(Arena *arena) {
     config->skipEmptyLines = false;
     config->trimFields = false;
     config->preserveQuotes = false;
-    config->autoFlush = true;  // Default to true for immediate visibility
+    config->autoFlush = true;
     
     return config;
 }
@@ -94,7 +94,7 @@ bool csv_config_get_preserve_quotes(const CSVConfig *config) {
 }
 
 bool csv_config_get_auto_flush(const CSVConfig *config) {
-    return config ? config->autoFlush : true;  // Default to true for safety
+    return config ? config->autoFlush : true;
 }
 
 void csv_config_set_delimiter(CSVConfig *config, char delimiter) {

@@ -120,37 +120,30 @@ long csv_reader_get_record_count(CSVReader *reader) {
         return -1;
     }
     
-    // Save current position
     long current_pos = ftell(reader->file);
     if (current_pos == -1) {
         return -1;
     }
     
-    // Rewind to start of file
     rewind(reader->file);
     
     long record_count = 0;
     
-    // Skip header if present
     if (reader->config && reader->config->hasHeader) {
         char *header_line = read_full_record(reader->file, reader->arena);
         if (!header_line) {
-            // Empty file or read error
             fseek(reader->file, current_pos, SEEK_SET);
             return 0;
         }
     }
     
-    // Count actual data records
     while (1) {
         char *line = read_full_record(reader->file, reader->arena);
         if (!line) {
-            break; // End of file reached
+            break;
         }
         
-        // Skip empty lines if configured to do so
         if (reader->config && reader->config->skipEmptyLines) {
-            // Check if line is empty (only whitespace)
             bool is_empty = true;
             for (int i = 0; line[i] != '\0'; i++) {
                 if (line[i] != ' ' && line[i] != '\t' && line[i] != '\r' && line[i] != '\n') {
@@ -159,14 +152,13 @@ long csv_reader_get_record_count(CSVReader *reader) {
                 }
             }
             if (is_empty) {
-                continue; // Skip this empty line
+                continue;
             }
         }
         
         record_count++;
     }
     
-    // Restore original position
     fseek(reader->file, current_pos, SEEK_SET);
     
     return record_count;

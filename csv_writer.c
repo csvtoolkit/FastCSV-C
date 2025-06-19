@@ -56,8 +56,6 @@ static CSVWriterResult write_bom(FILE *file, CSVEncoding encoding) {
         return CSV_WRITER_ERROR_FILE_WRITE;
     }
     
-    // Note: BOM is always flushed since it's written once during initialization
-    
     return CSV_WRITER_OK;
 }
 
@@ -196,49 +194,40 @@ bool is_numeric_field(const char *field) {
     
     const char *p = field;
     
-    // Skip leading whitespace
     while (*p == ' ' || *p == '\t') p++;
     
-    // Check for optional sign
     if (*p == '+' || *p == '-') p++;
     
     bool has_digits = false;
     
-    // Check digits before decimal point
     while (*p >= '0' && *p <= '9') {
         has_digits = true;
         p++;
     }
     
-    // Check for decimal point
     if (*p == '.') {
         p++;
         
-        // Check digits after decimal point
         while (*p >= '0' && *p <= '9') {
             has_digits = true;
             p++;
         }
     }
     
-    // Skip trailing whitespace
     while (*p == ' ' || *p == '\t') p++;
     
-    // Must have digits and reach end of string
     return has_digits && *p == '\0';
 }
 
 bool field_needs_quoting(const char *field, char delimiter, char enclosure, bool strictMode) {
     if (!field) return false;
     
-    // Always quote if field contains delimiter, enclosure, or line breaks
     for (const char *p = field; *p; p++) {
         if (*p == delimiter || *p == enclosure || *p == '\n' || *p == '\r') {
             return true;
         }
     }
     
-    // In strict mode, also quote fields with spaces
     if (strictMode) {
         for (const char *p = field; *p; p++) {
             if (*p == ' ') {
@@ -255,7 +244,6 @@ CSVWriterResult write_field(FILE *file, const FieldWriteOptions *options) {
     
     const char *field = options->field ? options->field : "";
     
-    // RFC 4180: Fields containing line breaks, double quotes, or commas must be quoted
     bool needs_quoting = field_needs_quoting(field, options->delimiter, options->enclosure, options->strictMode);
     
     if (needs_quoting || options->needs_quoting) {
@@ -263,7 +251,6 @@ CSVWriterResult write_field(FILE *file, const FieldWriteOptions *options) {
         
         for (const char *p = field; *p; p++) {
             if (*p == options->enclosure) {
-                // RFC 4180: Double quotes must be escaped by doubling them
                 if (fputc(options->enclosure, file) == EOF) return CSV_WRITER_ERROR_FILE_WRITE;
                 if (fputc(options->enclosure, file) == EOF) return CSV_WRITER_ERROR_FILE_WRITE;
             } else {
@@ -305,10 +292,8 @@ CSVWriterResult write_headers(CSVWriter *writer, char **headers, int header_coun
         if (result != CSV_WRITER_OK) return result;
     }
 
-    // Use Unix line endings for compatibility
     if (fprintf(writer->file, "\n") < 0) return CSV_WRITER_ERROR_FILE_WRITE;
     
-    // Auto-flush headers if enabled (default: true)
     if (csv_config_get_auto_flush(writer->config)) {
         if (fflush(writer->file) != 0) return CSV_WRITER_ERROR_FILE_WRITE;
     }
@@ -342,10 +327,8 @@ CSVWriterResult csv_writer_write_record(CSVWriter *writer, char **fields, int fi
         if (result != CSV_WRITER_OK) return result;
     }
     
-    // Use Unix line endings for compatibility
     if (fprintf(writer->file, "\n") < 0) return CSV_WRITER_ERROR_FILE_WRITE;
     
-    // Auto-flush record if enabled (default: true)
     if (csv_config_get_auto_flush(writer->config)) {
         if (fflush(writer->file) != 0) return CSV_WRITER_ERROR_FILE_WRITE;
     }
