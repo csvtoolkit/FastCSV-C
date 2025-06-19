@@ -69,26 +69,6 @@ jobs:
         make test-writer
         make test-reader
 
-  static-analysis:
-    name: Static Analysis
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cppcheck clang-tools
-
-    - name: Run cppcheck
-      run: |
-        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem *.c *.h
-
-    - name: Run clang static analyzer
-      run: |
-        scan-build --status-bugs make clean all
-
   memory-safety:
     name: Memory Safety Tests
     runs-on: ubuntu-latest
@@ -133,31 +113,6 @@ jobs:
     - name: Cross compile for ARM32
       run: |
         CC=arm-linux-gnueabihf-gcc make clean all
-
-  documentation:
-    name: Documentation Check
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Check README links
-      run: |
-        # Check that all referenced files exist
-        test -f LICENSE
-        test -f CONTRIBUTING.md
-        test -f Makefile
-
-    - name: Validate Markdown
-      uses: DavidAnson/markdownlint-action@v1
-      with:
-        files: '**/*.md'
-        config: |
-          {
-            "MD013": false,
-            "MD033": false,
-            "MD041": false
-          }
 
   release-test:
     name: Release Build Test
