@@ -48,6 +48,9 @@ static CSVWriterResult write_bom(FILE *file, CSVEncoding encoding) {
             bom = UTF32BE_BOM;
             bom_size = sizeof(UTF32BE_BOM);
             break;
+        case CSV_ENCODING_ASCII:
+        case CSV_ENCODING_LATIN1:
+            return CSV_WRITER_OK;
         default:
             return CSV_WRITER_OK;
     }

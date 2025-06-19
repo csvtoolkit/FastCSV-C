@@ -275,15 +275,17 @@ csv_config_set_limit(config, 1000);  // Process only 1000 records
 
 ### Supported Encodings
 
-| Encoding | Constant | BOM Support |
-|----------|----------|-------------|
-| UTF-8 | `CSV_ENCODING_UTF8` | ✅ |
-| UTF-16 LE | `CSV_ENCODING_UTF16LE` | ✅ |
-| UTF-16 BE | `CSV_ENCODING_UTF16BE` | ✅ |
-| UTF-32 LE | `CSV_ENCODING_UTF32LE` | ✅ |
-| UTF-32 BE | `CSV_ENCODING_UTF32BE` | ✅ |
-| ASCII | `CSV_ENCODING_ASCII` | ❌ |
-| Latin1 | `CSV_ENCODING_LATIN1` | ❌ |
+| Encoding | Constant | BOM Support | Notes |
+|----------|----------|-------------|-------|
+| UTF-8 | `CSV_ENCODING_UTF8` | ✅ | Unicode, default |
+| UTF-16 LE | `CSV_ENCODING_UTF16LE` | ✅ | Unicode |
+| UTF-16 BE | `CSV_ENCODING_UTF16BE` | ✅ | Unicode |
+| UTF-32 LE | `CSV_ENCODING_UTF32LE` | ✅ | Unicode |
+| UTF-32 BE | `CSV_ENCODING_UTF32BE` | ✅ | Unicode |
+| ASCII | `CSV_ENCODING_ASCII` | ❌ | Single-byte, no BOM, no Unicode |
+| Latin1 | `CSV_ENCODING_LATIN1` | ❌ | Single-byte, no BOM, Western European |
+
+- **ASCII** and **Latin1** are fully supported for both reading and writing. No BOM is written for these encodings. They are suitable for legacy systems and Western European text, but do not support Unicode characters outside their range.
 
 ### BOM (Byte Order Mark) Writing
 
@@ -508,18 +510,17 @@ while (csv_reader_has_next(reader)) {
 ### Multi-Encoding File Processing
 
 ```c
-// Process files with different encodings
+// Process files with different encodings, including ASCII and Latin1
 CSVEncoding encodings[] = {
     CSV_ENCODING_UTF8,
     CSV_ENCODING_UTF16LE,
-    CSV_ENCODING_LATIN1
+    CSV_ENCODING_LATIN1, // Now fully supported
+    CSV_ENCODING_ASCII   // Now fully supported
 };
 
-for (int i = 0; i < 3; i++) {
+for (int i = 0; i < 4; i++) {
     csv_config_set_encoding(config, encodings[i]);
-    csv_config_set_write_bom(config, true);
-    
-    // Process file with specific encoding
+    csv_config_set_write_bom(config, true); // No BOM for ASCII/Latin1
     process_csv_file(config);
 }
 ```
