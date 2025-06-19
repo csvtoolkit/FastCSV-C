@@ -14,7 +14,9 @@ typedef enum {
     CSV_WRITER_ERROR_FILE_WRITE,
     CSV_WRITER_ERROR_INVALID_FIELD_COUNT,
     CSV_WRITER_ERROR_FIELD_NOT_FOUND,
-    CSV_WRITER_ERROR_BUFFER_OVERFLOW
+    CSV_WRITER_ERROR_BUFFER_OVERFLOW,
+    CSV_WRITER_ERROR_ENCODING,
+    CSV_WRITER_ERROR_MAX
 } CSVWriterResult;
 
 typedef struct {
@@ -36,6 +38,7 @@ typedef struct {
     char enclosure;
     char escape;
     bool needs_quoting;
+    bool strictMode;
 } FieldWriteOptions;
 
 CSVWriterResult csv_writer_init(CSVWriter **writer, CSVConfig *config, char **headers, int header_count, Arena *arena);
@@ -47,7 +50,8 @@ void csv_writer_free(CSVWriter *writer);
 
 CSVWriterResult write_field(FILE *file, const FieldWriteOptions *options);
 CSVWriterResult write_headers(CSVWriter *writer, char **headers, int header_count);
-bool field_needs_quoting(const char *field, char delimiter, char enclosure);
+bool field_needs_quoting(const char *field, char delimiter, char enclosure, bool strictMode);
+bool is_numeric_field(const char *field);
 
 const char* csv_writer_error_string(CSVWriterResult result);
 

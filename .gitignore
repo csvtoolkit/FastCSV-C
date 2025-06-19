@@ -7,6 +7,8 @@
 *.gcov.o
 *.gcno
 *.gcda
+*.dep
+*.lo
 
 # Test executables
 test_arena

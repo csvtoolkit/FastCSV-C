@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 static void init_field_array(FieldArray *arr, Arena *arena, size_t initial_capacity) {
     void *ptr;
@@ -32,22 +33,57 @@ static bool grow_field_array(FieldArray *arr, Arena *arena) {
     return true;
 }
 
-static void add_field(FieldArray *arr, const char *start, size_t len, Arena *arena) {
+static bool add_field(FieldArray *arr, const char *start, size_t len, Arena *arena) {
     if (arr->count >= arr->capacity) {
         if (!grow_field_array(arr, arena)) {
-            return;
+            return false;
+        }
+    }
+
+    while (len > 0 && (start[len-1] == ' ' || start[len-1] == '\t')) {
+        len--;
+    }
+
+    void *ptr;
+    ArenaResult result = arena_alloc(arena, len + 1, &ptr);
+    if (result != ARENA_OK) {
+        return false;
+    }
+    char *field = (char*)ptr;
+    memcpy(field, start, len);
+    field[len] = '\0';
+    arr->fields[arr->count++] = field;
+    return true;
+}
+
+static bool add_quoted_field(FieldArray *arr, const char *start, size_t len, Arena *arena, char enclosure) {
+    if (arr->count >= arr->capacity) {
+        if (!grow_field_array(arr, arena)) {
+            return false;
         }
     }
 
     void *ptr;
     ArenaResult result = arena_alloc(arena, len + 1, &ptr);
     if (result != ARENA_OK) {
-        return;
+        return false;
     }
+    
     char *field = (char*)ptr;
-    memcpy(field, start, len);
-    field[len] = '\0';
+    size_t write_pos = 0;
+    
+    for (size_t i = 0; i < len; i++) {
+        if (start[i] == enclosure && i + 1 < len && start[i + 1] == enclosure) {
+            field[write_pos++] = enclosure;
+            i++;
+        } else {
+            field[write_pos++] = start[i];
+        }
+    }
+    
+    field[write_pos] = '\0';
     arr->fields[arr->count++] = field;
+    return true;
 }
 
 CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVConfig *config, int line_number) {
@@ -86,7 +122,12 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
                     field_start = &line[pos + 1];
                     field_len = 0;
                 } else if (c == config->delimiter) {
-                    add_field(&result.fields, "", 0, arena);
+                    if (!add_field(&result.fields, "", 0, arena)) {
+                        result.success = false;
+                        result.error = "Memory allocation failed";
+                        result.error_column = pos;
+                        return result;
+                    }
                     field_start = &line[pos + 1];
                     field_len = 0;
                 } else {
@@ -98,7 +139,12 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
 
             case UNQUOTED_FIELD:
                 if (c == config->delimiter) {
-                    add_field(&result.fields, field_start, field_len, arena);
+                    if (!add_field(&result.fields, field_start, field_len, arena)) {
+                        result.success = false;
+                        result.error = "Memory allocation failed";
+                        result.error_column = pos;
+                        return result;
+                    }
                     state = FIELD_START;
                     field_start = &line[pos + 1];
                     field_len = 0;
@@ -110,7 +156,7 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
             case QUOTED_FIELD:
                 if (c == config->enclosure) {
                     if (pos + 1 < len && line[pos + 1] == config->enclosure) {
-                        field_len++;
+                        field_len += 2;
                         pos++;
                     } else {
                         state = FIELD_END;
@@ -122,7 +168,12 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
 
             case FIELD_END:
                 if (c == config->delimiter) {
-                    add_field(&result.fields, field_start, field_len, arena);
+                    if (!add_quoted_field(&result.fields, field_start, field_len, arena, config->enclosure)) {
+                        result.success = false;
+                        result.error = "Memory allocation failed";
+                        result.error_column = pos;
+                        return result;
+                    }
                     state = FIELD_START;
                     field_start = &line[pos + 1];
                     field_len = 0;
@@ -151,7 +202,19 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
     }
 
     if (field_len > 0 || state == FIELD_START) {
-        add_field(&result.fields, field_start, field_len, arena);
+        if (state == FIELD_END) {
+            if (!add_quoted_field(&result.fields, field_start, field_len, arena, config->enclosure)) {
+                result.success = false;
+                result.error = "Memory allocation failed";
+                return result;
+            }
+        } else {
+            if (!add_field(&result.fields, field_start, field_len, arena)) {
+                result.success = false;
+                result.error = "Memory allocation failed";
+                return result;
+            }
+        }
     }
 
     return result;
@@ -162,28 +225,79 @@ char* read_full_record(FILE *file, Arena *arena) {
         return NULL;
     }
 
-    char buffer[4096];
-    if (!fgets(buffer, sizeof(buffer), file)) {
+    char *record = malloc(1024);
+    if (!record) {
+        return NULL;
+    }
+    
+    size_t record_len = 0;
+    size_t record_capacity = 1024;
+    bool in_quotes = false;
+    int c;
+
+    while ((c = fgetc(file)) != EOF) {
+        if (record_len >= record_capacity - 1) {
+            size_t new_capacity = record_capacity * 2;
+            char *new_record = realloc(record, new_capacity);
+            if (!new_record) {
+                free(record);
+                return NULL;
+            }
+            record = new_record;
+            record_capacity = new_capacity;
+        }
+
+        if (c == '"') {
+            if (in_quotes) {
+                int next_c = fgetc(file);
+                if (next_c == '"') {
+                    record[record_len++] = '"';
+                    record[record_len++] = '"';
+                } else {
+                    record[record_len++] = '"';
+                    in_quotes = false;
+                    if (next_c != EOF) {
+                        ungetc(next_c, file);
+                    }
+                }
+            } else {
+                in_quotes = true;
+                record[record_len++] = '"';
+            }
+        } else if (c == '\n' || c == '\r') {
+            if (!in_quotes) {
+                if (c == '\r') {
+                    int next_c = fgetc(file);
+                    if (next_c != '\n' && next_c != EOF) {
+                        ungetc(next_c, file);
+                    }
+                }
+                break;
+            } else {
+                record[record_len++] = c;
+            }
+        } else {
+            record[record_len++] = c;
+        }
+    }
+
+    if (record_len == 0 && c == EOF) {
+        free(record);
         return NULL;
     }
 
-    size_t len = strlen(buffer);
-    if (len > 0 && (buffer[len-1] == '\n' || buffer[len-1] == '\r')) {
-        buffer[len-1] = '\0';
-        len--;
-    }
-    if (len > 0 && buffer[len-1] == '\r') {
-        buffer[len-1] = '\0';
-        len--;
-    }
-
-    void *ptr;
-    ArenaResult result = arena_alloc(arena, len + 1, &ptr);
+    record[record_len] = '\0';
+    
+    void *arena_ptr;
+    ArenaResult result = arena_alloc(arena, record_len + 1, &arena_ptr);
     if (result != ARENA_OK) {
+        free(record);
         return NULL;
     }
-
-    char *line = (char*)ptr;
-    strcpy(line, buffer);
-    return line;
+    
+    char *arena_record = (char*)arena_ptr;
+    memcpy(arena_record, record, record_len + 1);
+    free(record);
+    
+    return arena_record;
 } 

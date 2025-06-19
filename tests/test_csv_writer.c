@@ -146,7 +146,9 @@ void test_csv_writer_write_record_with_quotes() {
     
     rewind(file);
     char buffer[1000];
-    fread(buffer, 1, sizeof(buffer), file);
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
     
     assert(strstr(buffer, "\"A person with, comma\"") != NULL);
     
@@ -182,7 +184,9 @@ void test_csv_writer_write_record_map() {
     
     rewind(file);
     char buffer[1000];
-    fread(buffer, 1, sizeof(buffer), file);
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
     
     assert(strstr(buffer, "Alice,28,Boston") != NULL);
     
@@ -217,7 +221,9 @@ void test_csv_writer_custom_delimiter() {
     
     rewind(file);
     char buffer[1000];
-    fread(buffer, 1, sizeof(buffer), file);
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
     
     assert(strstr(buffer, "John;25") != NULL);
     
@@ -252,7 +258,9 @@ void test_csv_writer_custom_enclosure() {
     
     rewind(file);
     char buffer[1000];
-    fread(buffer, 1, sizeof(buffer), file);
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
     
     assert(strstr(buffer, "'A person with, comma'") != NULL);
     
@@ -265,10 +273,17 @@ void test_csv_writer_custom_enclosure() {
 void test_field_needs_quoting() {
     printf("Testing field_needs_quoting...\n");
     
-    assert(field_needs_quoting("field,with,comma", ',', '"'));
-    assert(field_needs_quoting("field\nwith\nnewline", ',', '"'));
-    assert(field_needs_quoting("field\"with\"quote", ',', '"'));
-    assert(!field_needs_quoting("simple field", ',', '"'));
+    // Basic quoting tests
+    assert(field_needs_quoting("field,with,comma", ',', '"', false));
+    assert(field_needs_quoting("field\nwith\nnewline", ',', '"', false));
+    assert(field_needs_quoting("field\"with\"quote", ',', '"', false));
+    assert(!field_needs_quoting("simple field", ',', '"', false));
+    
+    // Strict mode tests
+    assert(field_needs_quoting("field with space", ',', '"', true));
+    assert(!field_needs_quoting("field with space", ',', '"', false));
+    assert(!field_needs_quoting("simplefield", ',', '"', true));
+    assert(field_needs_quoting("field,comma", ',', '"', true));
     
     printf("✓ field_needs_quoting test passed\n");
 }
@@ -289,7 +304,8 @@ void test_write_field() {
         .delimiter = ',',
         .enclosure = '"',
         .escape = '\\',
-        .needs_quoting = true
+        .needs_quoting = true,
+        .strictMode = false
     };
     
     CSVWriterResult result = write_field(file, &options);
@@ -297,7 +313,9 @@ void test_write_field() {
     
     rewind(file);
     char buffer[1000];
-    fread(buffer, 1, sizeof(buffer), file);
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
     
     assert(strstr(buffer, "\"field,with,comma\"") != NULL);
     
@@ -322,6 +340,146 @@ void test_csv_writer_error_string() {
     printf("✓ csv_writer_error_string test passed\n");
 }
 
+void test_csv_writer_bom_support() {
+    printf("Testing csv_writer BOM support...\n");
+    
+    Arena arena;
+    if (arena_create(&arena, 1024 * 1024) != ARENA_OK) {
+        printf("Failed to create arena\n");
+        return;
+    }
+    
+    FILE *file = tmpfile();
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_encoding(config, CSV_ENCODING_UTF8);
+    csv_config_set_write_bom(config, true);
+    char *headers[] = {"Name", "Age"};
+    CSVWriter *writer;
+    
+    CSVWriterResult result = csv_writer_init_with_file(&writer, file, config, headers, 2, &arena);
+    assert(result == CSV_WRITER_OK);
+    
+    // Write a record
+    char *record[] = {"John", "25"};
+    result = csv_writer_write_record(writer, record, 2);
+    assert(result == CSV_WRITER_OK);
+    
+    csv_writer_flush(writer);
+    
+    // Check for UTF-8 BOM at the beginning
+    rewind(file);
+    unsigned char buffer[10];
+    size_t bytes_read = fread(buffer, 1, 3, file);
+    assert(bytes_read == 3);
+    assert(buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF);
+    
+    csv_writer_free(writer);
+    fclose(file);
+    arena_destroy(&arena);
+    printf("✓ csv_writer BOM support test passed\n");
+}
+
+void test_is_numeric_field() {
+    printf("Testing is_numeric_field...\n");
+    
+    // Test numeric fields
+    assert(is_numeric_field("123") == true);
+    assert(is_numeric_field("123.45") == true);
+    assert(is_numeric_field("-123") == true);
+    assert(is_numeric_field("+123.45") == true);
+    assert(is_numeric_field("0") == true);
+    assert(is_numeric_field("0.0") == true);
+    
+    // Test non-numeric fields
+    assert(is_numeric_field("abc") == false);
+    assert(is_numeric_field("123abc") == false);
+    assert(is_numeric_field("") == false);
+    assert(is_numeric_field(NULL) == false);
+    assert(is_numeric_field("12.34.56") == false);
+    
+    // Test whitespace handling
+    assert(is_numeric_field("  123  ") == true);
+    assert(is_numeric_field("\t-45.67\t") == true);
+    
+    printf("✓ is_numeric_field test passed\n");
+}
+
+void test_csv_writer_encoding_support() {
+    printf("Testing csv_writer encoding support...\n");
+    
+    Arena arena;
+    if (arena_create(&arena, 1024 * 1024) != ARENA_OK) {
+        printf("Failed to create arena\n");
+        return;
+    }
+    
+    // Test different encodings
+    CSVEncoding encodings[] = {
+        CSV_ENCODING_UTF8,
+        CSV_ENCODING_UTF16LE,
+        CSV_ENCODING_UTF16BE,
+        CSV_ENCODING_UTF32LE,
+        CSV_ENCODING_UTF32BE,
+        CSV_ENCODING_ASCII,
+        CSV_ENCODING_LATIN1
+    };
+    
+    for (int i = 0; i < 7; i++) {
+        FILE *file = tmpfile();
+        CSVConfig *config = csv_config_create(&arena);
+        csv_config_set_encoding(config, encodings[i]);
+        char *headers[] = {"Name"};
+        CSVWriter *writer;
+        
+        CSVWriterResult result = csv_writer_init_with_file(&writer, file, config, headers, 1, &arena);
+        assert(result == CSV_WRITER_OK);
+        
+        csv_writer_free(writer);
+        fclose(file);
+    }
+    
+    arena_destroy(&arena);
+    printf("✓ csv_writer encoding support test passed\n");
+}
+
+void test_csv_writer_line_endings() {
+    printf("Testing csv_writer line endings...\n");
+    
+    Arena arena;
+    if (arena_create(&arena, 1024 * 1024) != ARENA_OK) {
+        printf("Failed to create arena\n");
+        return;
+    }
+    
+    FILE *file = tmpfile();
+    CSVConfig *config = csv_config_create(&arena);
+    char *headers[] = {"Name", "Age"};
+    CSVWriter *writer;
+    
+    csv_writer_init_with_file(&writer, file, config, headers, 2, &arena);
+    
+    char *record[] = {"John", "25"};
+    CSVWriterResult result = csv_writer_write_record(writer, record, 2);
+    assert(result == CSV_WRITER_OK);
+    
+    csv_writer_flush(writer);
+    
+    rewind(file);
+    char buffer[1000];
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_read = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[bytes_read] = '\0';
+    
+    // Should use Unix line endings (\n) not Windows (\r\n)
+    assert(strstr(buffer, "\r\n") == NULL);
+    assert(strstr(buffer, "\n") != NULL);
+    
+    csv_writer_free(writer);
+    fclose(file);
+    arena_destroy(&arena);
+    printf("✓ csv_writer line endings test passed\n");
+}
+
 int main() {
     printf("Running CSV Writer Tests...\n\n");
     
@@ -336,6 +494,10 @@ int main() {
     test_field_needs_quoting();
     test_write_field();
     test_csv_writer_error_string();
+    test_csv_writer_bom_support();
+    test_is_numeric_field();
+    test_csv_writer_encoding_support();
+    test_csv_writer_line_endings();
     
     printf("\n✅ All CSV Writer tests passed!\n");
     return 0;
