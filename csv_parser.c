@@ -225,24 +225,28 @@ char* read_full_record(FILE *file, Arena *arena) {
         return NULL;
     }
 
-    char *record = malloc(1024);
-    if (!record) {
+    size_t record_capacity = 1024;
+    void *arena_ptr;
+    ArenaResult result = arena_alloc(arena, record_capacity, &arena_ptr);
+    if (result != ARENA_OK) {
         return NULL;
     }
     
+    char *record = (char*)arena_ptr;
     size_t record_len = 0;
-    size_t record_capacity = 1024;
     bool in_quotes = false;
     int c;
 
     while ((c = fgetc(file)) != EOF) {
         if (record_len >= record_capacity - 1) {
             size_t new_capacity = record_capacity * 2;
-            char *new_record = realloc(record, new_capacity);
-            if (!new_record) {
-                free(record);
+            void *new_ptr;
+            ArenaResult grow_result = arena_alloc(arena, new_capacity, &new_ptr);
+            if (grow_result != ARENA_OK) {
                 return NULL;
             }
+            char *new_record = (char*)new_ptr;
+            memcpy(new_record, record, record_len);
             record = new_record;
             record_capacity = new_capacity;
         }
@@ -282,22 +286,10 @@ char* read_full_record(FILE *file, Arena *arena) {
     }
 
     if (record_len == 0 && c == EOF) {
-        free(record);
         return NULL;
     }
 
     record[record_len] = '\0';
     
-    void *arena_ptr;
-    ArenaResult result = arena_alloc(arena, record_len + 1, &arena_ptr);
-    if (result != ARENA_OK) {
-        free(record);
-        return NULL;
-    }
-    
-    char *arena_record = (char*)arena_ptr;
-    memcpy(arena_record, record, record_len + 1);
-    free(record);
-    
-    return arena_record;
+    return record;
 } 
