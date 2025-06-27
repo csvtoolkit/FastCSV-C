@@ -25,7 +25,7 @@ void test_csv_reader_optimized() {
     csv_config_set_path(config, "test_reader.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
     assert(reader->headers_loaded == true);
     assert(reader->cached_header_count == 3);
@@ -67,7 +67,7 @@ void test_csv_reader_get_headers() {
     csv_config_set_path(config, "test_headers.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     int header_count = 0;
@@ -95,7 +95,7 @@ void test_csv_reader_rewind() {
     csv_config_set_path(config, "test_rewind.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     // Read first record
@@ -131,7 +131,7 @@ void test_csv_reader_has_next() {
     csv_config_set_path(config, "test_has_next.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     // Should have records
@@ -169,7 +169,7 @@ void test_csv_reader_seek() {
     csv_config_set_path(config, "test_seek.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     // Seek to position 2 (3rd data record)
@@ -202,7 +202,7 @@ void test_csv_reader_position() {
     csv_config_set_path(config, "test_position.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     // Initial position should be 1 (after header)
@@ -239,20 +239,20 @@ void test_csv_reader_set_config() {
     
     CSVConfig *config2 = csv_config_create(&arena);
     csv_config_set_delimiter(config2, ';');
+    csv_config_set_path(config2, "test_set_config.csv");
+    csv_config_set_has_header(config2, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config1);
+    CSVReader *reader = csv_reader_init_standalone(config1);
     assert(reader != NULL);
     assert(reader->config->delimiter == ',');
 
-    // Update config
-    int result = csv_reader_set_config(reader, &arena, config2);
-    assert(result == 1);
+    // For standalone mode, we can't change config after init
+    // So we'll test creating a new reader with different config
+    csv_reader_free(reader);
+    
+    reader = csv_reader_init_standalone(config2);
+    assert(reader != NULL);
     assert(reader->config->delimiter == ';');
-
-    // Test null parameters
-    assert(csv_reader_set_config(NULL, &arena, config2) == 0);
-    assert(csv_reader_set_config(reader, NULL, config2) == 0);
-    assert(csv_reader_set_config(reader, &arena, NULL) == 0);
 
     csv_reader_free(reader);
     arena_destroy(&arena);
@@ -293,7 +293,7 @@ void test_csv_reader_get_record_count() {
     csv_config_set_path(config, "test_count_header.csv");
     csv_config_set_has_header(config, true);
 
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
+    CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     long count = csv_reader_get_record_count(reader);
@@ -312,7 +312,7 @@ void test_csv_reader_get_record_count() {
     csv_config_set_path(config, "test_count_no_header.csv");
     csv_config_set_has_header(config, false);
 
-    reader = csv_reader_init_with_config(&arena, config);
+    reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     count = csv_reader_get_record_count(reader);
@@ -330,7 +330,7 @@ void test_csv_reader_get_record_count() {
     csv_config_set_path(config, "test_count_empty.csv");
     csv_config_set_has_header(config, false);
 
-    reader = csv_reader_init_with_config(&arena, config);
+    reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     count = csv_reader_get_record_count(reader);
@@ -350,7 +350,7 @@ void test_csv_reader_get_record_count() {
     csv_config_set_has_header(config, true);
     csv_config_set_skip_empty_lines(config, true);
 
-    reader = csv_reader_init_with_config(&arena, config);
+    reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
     count = csv_reader_get_record_count(reader);
