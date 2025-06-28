@@ -535,40 +535,6 @@ The library is designed for easy integration:
 - **Go**: Use `cgo`
 - **Rust**: Use `bindgen`
 
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐
-│   CSV Reader    │    │   CSV Writer    │
-│  + Navigation   │    │  + Encoding     │
-│  + Headers      │    │  + BOM Support  │
-│  + Seeking      │    │  + Strict Mode  │
-└─────────┬───────┘    └─────────┬───────┘
-          │                      │
-          └──────┬─────────────────┘
-                 │
-         ┌───────▼───────┐
-         │  CSV Parser   │
-         │ + RFC 4180    │
-         │ + Multi-line  │
-         │ + Quote Esc   │
-         └───────┬───────┘
-                 │
-         ┌───────▼───────┐
-         │  CSV Config   │
-         │ + Encoding    │
-         │ + BOM Flags   │
-         │ + Validation  │
-         └───────┬───────┘
-                 │
-    ┌────────────▼────────────┐
-    │     Arena Allocator     │
-    │   + Memory Safety       │
-    │   + Zero Leaks          │
-    │   + Performance         │
-    └─────────────────────────┘
-```
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -595,8 +561,6 @@ make valgrind
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 📦 Releases
-
-See [Releases](https://github.com/csvtoolkit/FastCSV-C/releases) for downloadable packages and release notes.
 
 ### Latest Release Features
 - **Production-ready CSV library** with enterprise features
