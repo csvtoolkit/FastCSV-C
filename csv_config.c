@@ -1,13 +1,21 @@
+#ifdef WIN32
+#include <io.h>
+#define F_OK 0
+#define access _access
+#else
+#include <unistd.h>
+#endif
+
 #include "csv_config.h"
 
 CSVConfig* csv_config_create(Arena *arena) {
     void *ptr;
     ArenaResult result = arena_alloc(arena, sizeof(CSVConfig), &ptr);
     if (result != ARENA_OK) return NULL;
-    
+
     CSVConfig *config = (CSVConfig*)ptr;
     memset(config, 0, sizeof(CSVConfig));
-    
+
     config->delimiter = ',';
     config->enclosure = '"';
     config->escape = '"';
@@ -19,7 +27,7 @@ CSVConfig* csv_config_create(Arena *arena) {
     config->trimFields = false;
     config->preserveQuotes = false;
     config->autoFlush = true;
-    
+
     return config;
 }
 
@@ -31,11 +39,11 @@ void csv_config_free(CSVConfig *config) {
 
 CSVConfig* csv_config_copy(Arena *arena, const CSVConfig *config) {
     if (!config) return NULL;
-    
+
     void *ptr;
     ArenaResult result = arena_alloc(arena, sizeof(CSVConfig), &ptr);
     if (result != ARENA_OK) return NULL;
-    
+
     CSVConfig *copy = (CSVConfig*)ptr;
     memcpy(copy, config, sizeof(CSVConfig));
     return copy;
@@ -110,6 +118,11 @@ void csv_config_set_escape(CSVConfig *config, char escape) {
 }
 
 void csv_config_set_path(CSVConfig *config, const char *path) {
+    if (access(path, F_OK) != 0) {
+        printf("Error: File %s does not exist!", path);
+        exit(1);
+    }
+
     if (config && path) {
         strncpy(config->path, path, MAX_PATH_LENGTH - 1);
         config->path[MAX_PATH_LENGTH - 1] = '\0';
@@ -154,4 +167,4 @@ void csv_config_set_preserve_quotes(CSVConfig *config, bool preserveQuotes) {
 
 void csv_config_set_auto_flush(CSVConfig *config, bool autoFlush) {
     if (config) config->autoFlush = autoFlush;
-} 
+}
