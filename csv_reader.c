@@ -173,7 +173,7 @@ void csv_reader_free(CSVReader *reader) {
 }
 
 char** csv_reader_get_headers(CSVReader *reader, int *header_count) {
-    if (!reader || !header_count) {
+    if (!reader) {
         *header_count = 0;
         return NULL;
     }
