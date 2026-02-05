@@ -48,19 +48,19 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
     if (!config) {
         return NULL;
     }
-    
+
     Arena *persistent_arena = malloc(sizeof(Arena));
     Arena *temp_arena = malloc(sizeof(Arena));
-    
+
     if (!persistent_arena || !temp_arena) {
         if (persistent_arena) free(persistent_arena);
         if (temp_arena) free(temp_arena);
         return NULL;
     }
-    
+
     ArenaResult p_result = arena_create(persistent_arena, 1024 * 1024);
     ArenaResult t_result = arena_create(temp_arena, 1024 * 1024);
-    
+
     if (p_result != ARENA_OK || t_result != ARENA_OK) {
         if (p_result == ARENA_OK) arena_destroy(persistent_arena);
         if (t_result == ARENA_OK) arena_destroy(temp_arena);
@@ -68,7 +68,7 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
         free(temp_arena);
         return NULL;
     }
-    
+
     CSVReader *reader = malloc(sizeof(CSVReader));
     if (!reader) {
         arena_destroy(persistent_arena);
@@ -152,7 +152,7 @@ void csv_reader_free(CSVReader *reader) {
             fclose(reader->file);
             reader->file = NULL;
         }
-        
+
         if (reader->owns_arenas) {
             if (reader->persistent_arena) {
                 arena_destroy(reader->persistent_arena);
@@ -173,15 +173,20 @@ void csv_reader_free(CSVReader *reader) {
 }
 
 char** csv_reader_get_headers(CSVReader *reader, int *header_count) {
-    if (!reader || !header_count) {
+    if (!header_count) {
         return NULL;
     }
-    
+
+    if (!reader) {
+        *header_count = 0;
+        return NULL;
+    }
+
     if (reader->headers_loaded) {
         *header_count = reader->cached_header_count;
         return reader->cached_headers;
     }
-    
+
     *header_count = 0;
     return NULL;
 }
@@ -190,7 +195,7 @@ void csv_reader_rewind(CSVReader *reader) {
     if (reader && reader->file) {
         rewind(reader->file);
         reader->line_number = 0;
-        
+
         if (reader->config->hasHeader && reader->headers_loaded) {
             char *line = read_full_record(reader->file, reader->persistent_arena);
             if (line) {
@@ -204,7 +209,7 @@ int csv_reader_set_config(CSVReader *reader, Arena *persistent_arena, Arena *tem
     if (!reader || !config || !persistent_arena || !temp_arena) {
         return 0;
     }
-    
+
     reader->config = (CSVConfig*)config;
     reader->persistent_arena = persistent_arena;
     reader->temp_arena = temp_arena;
@@ -215,16 +220,16 @@ long csv_reader_get_record_count(CSVReader *reader) {
     if (!reader || !reader->file) {
         return -1;
     }
-    
+
     long current_pos = ftell(reader->file);
     if (current_pos == -1) {
         return -1;
     }
-    
+
     rewind(reader->file);
-    
+
     long record_count = 0;
-    
+
     if (reader->config && reader->config->hasHeader) {
         char *header_line = read_full_record(reader->file, reader->persistent_arena);
         if (!header_line) {
@@ -232,13 +237,13 @@ long csv_reader_get_record_count(CSVReader *reader) {
             return 0;
         }
     }
-    
+
     while (1) {
         char *line = read_full_record(reader->file, reader->persistent_arena);
         if (!line) {
             break;
         }
-        
+
         if (reader->config && reader->config->skipEmptyLines) {
             bool is_empty = true;
             for (int i = 0; line[i] != '\0'; i++) {
@@ -251,12 +256,12 @@ long csv_reader_get_record_count(CSVReader *reader) {
                 continue;
             }
         }
-        
+
         record_count++;
     }
-    
+
     fseek(reader->file, current_pos, SEEK_SET);
-    
+
     return record_count;
 }
 
@@ -264,7 +269,7 @@ long csv_reader_get_position(CSVReader *reader) {
     if (!reader || !reader->file) {
         return -1;
     }
-    
+
     return reader->line_number;
 }
 
@@ -272,9 +277,9 @@ int csv_reader_seek(CSVReader *reader, long position) {
     if (!reader || !reader->file || position < 0) {
         return 0;
     }
-    
+
     csv_reader_rewind(reader);
-    
+
     for (long i = 0; i < position; i++) {
         arena_reset(reader->temp_arena);
         char *line = read_full_record(reader->file, reader->temp_arena);
@@ -283,7 +288,7 @@ int csv_reader_seek(CSVReader *reader, long position) {
         }
         reader->line_number++;
     }
-    
+
     return 1;
 }
 
@@ -291,14 +296,14 @@ int csv_reader_has_next(CSVReader *reader) {
     if (!reader || !reader->file) {
         return 0;
     }
-    
+
     long current_pos = ftell(reader->file);
     if (current_pos == -1) {
         return 0;
     }
-    
+
     int c = fgetc(reader->file);
     fseek(reader->file, current_pos, SEEK_SET);
-    
+
     return c != EOF;
-} 
+}
