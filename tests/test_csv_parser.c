@@ -69,28 +69,38 @@ void test_csv_parser_whitespace_trimming() {
     assert(arena_create(&arena, 4096) == ARENA_OK);
     CSVConfig *config = csv_config_create(&arena);
     
-    // Test trailing whitespace trimming (parser only trims trailing, not leading)
+    // Test with trimFields = false
+    config->trimFields = false;
     CSVParseResult result1 = csv_parse_line_inplace("  field1  ,  field2  ,  field3  ", &arena, config, 1);
     assert(result1.success == true);
     assert(result1.fields.count == 3);
-    assert(strcmp(result1.fields.fields[0], "  field1") == 0);  // Leading spaces preserved
-    assert(strcmp(result1.fields.fields[1], "  field2") == 0);  // Leading spaces preserved
-    assert(strcmp(result1.fields.fields[2], "  field3") == 0);  // Leading spaces preserved
+    assert(strcmp(result1.fields.fields[0], "  field1  ") == 0);  // Leading spaces preserved
+    assert(strcmp(result1.fields.fields[1], "  field2  ") == 0);  // Leading spaces preserved
+    assert(strcmp(result1.fields.fields[2], "  field3  ") == 0);  // Leading spaces preserved
     
-    // Test with quoted fields (should not trim inside quotes)
-    CSVParseResult result2 = csv_parse_line_inplace("\"  field1  \",  field2  ", &arena, config, 2);
+    // Test with trimFields = true
+    config->trimFields = true;
+    CSVParseResult result2 = csv_parse_line_inplace("  field1  ,  field2  ,  field3  ", &arena, config, 1);
     assert(result2.success == true);
-    assert(result2.fields.count == 2);
-    assert(strcmp(result2.fields.fields[0], "  field1  ") == 0);
-    assert(strcmp(result2.fields.fields[1], "  field2") == 0);
-    
-    // Test pure trailing whitespace trimming
-    CSVParseResult result3 = csv_parse_line_inplace("field1   ,field2\t\t,field3 ", &arena, config, 3);
+    assert(result2.fields.count == 3);
+    assert(strcmp(result2.fields.fields[0], "field1") == 0);  // Leading spaces preserved
+    assert(strcmp(result2.fields.fields[1], "field2") == 0);  // Leading spaces preserved
+    assert(strcmp(result2.fields.fields[2], "field3") == 0);  // Leading spaces preserved
+
+    // Test with quoted fields (should not trim inside quotes)
+    CSVParseResult result3 = csv_parse_line_inplace("\"  field1  \",  field2  ", &arena, config, 2);
     assert(result3.success == true);
-    assert(result3.fields.count == 3);
-    assert(strcmp(result3.fields.fields[0], "field1") == 0);  // Trailing spaces trimmed
-    assert(strcmp(result3.fields.fields[1], "field2") == 0);  // Trailing tabs trimmed
-    assert(strcmp(result3.fields.fields[2], "field3") == 0);  // Trailing space trimmed
+    assert(result3.fields.count == 2);
+    assert(strcmp(result3.fields.fields[0], "  field1  ") == 0);
+    assert(strcmp(result3.fields.fields[1], "field2") == 0);
+    
+    // Test pure trailing whitespace trimming with trimFields = true
+    CSVParseResult result4 = csv_parse_line_inplace("field1   ,field2\t\t,field3 ", &arena, config, 3);
+    assert(result4.success == true);
+    assert(result4.fields.count == 3);
+    assert(strcmp(result4.fields.fields[0], "field1") == 0);  // Trailing spaces trimmed
+    assert(strcmp(result4.fields.fields[1], "field2") == 0);  // Trailing tabs trimmed
+    assert(strcmp(result4.fields.fields[2], "field3") == 0);  // Trailing space trimmed
     
     arena_destroy(&arena);
     printf("✓ CSV parser whitespace trimming test passed\n");
