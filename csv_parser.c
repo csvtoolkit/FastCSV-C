@@ -1,5 +1,6 @@
 #include "csv_parser.h"
 #include "arena.h"
+#include "csv_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,17 +34,13 @@ static bool grow_field_array(FieldArray *arr, Arena *arena) {
     return true;
 }
 
-static bool add_field(FieldArray *arr, const char *start, size_t len, Arena *arena) {
+static bool add_field(FieldArray *arr, const char *start, size_t len, Arena *arena, const CSVConfig *config) {
     if (arr->count >= arr->capacity) {
         if (!grow_field_array(arr, arena)) {
             return false;
         }
     }
-
-    while (len > 0 && (start[len-1] == ' ' || start[len-1] == '\t')) {
-        len--;
-    }
-
+    
     void *ptr;
     ArenaResult result = arena_alloc(arena, len + 1, &ptr);
     if (result != ARENA_OK) {
@@ -52,6 +49,14 @@ static bool add_field(FieldArray *arr, const char *start, size_t len, Arena *are
     char *field = (char*)ptr;
     memcpy(field, start, len);
     field[len] = '\0';
+    
+    if (config->trimFields) {
+    CSVUtilsResult utilsResult = csv_utils_trim_whitespace(field, len);
+        if (utilsResult != CSV_UTILS_OK) {
+            return false;
+        }
+    }
+    
     arr->fields[arr->count++] = field;
     return true;
 }
@@ -122,7 +127,7 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
                     field_start = &line[pos + 1];
                     field_len = 0;
                 } else if (c == config->delimiter) {
-                    if (!add_field(&result.fields, "", 0, arena)) {
+                    if (!add_field(&result.fields, "", 0, arena, config)) {
                         result.success = false;
                         result.error = "Memory allocation failed";
                         result.error_column = pos;
@@ -139,7 +144,7 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
 
             case UNQUOTED_FIELD:
                 if (c == config->delimiter) {
-                    if (!add_field(&result.fields, field_start, field_len, arena)) {
+                    if (!add_field(&result.fields, field_start, field_len, arena, config)) {
                         result.success = false;
                         result.error = "Memory allocation failed";
                         result.error_column = pos;
@@ -209,7 +214,7 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
                 return result;
             }
         } else {
-            if (!add_field(&result.fields, field_start, field_len, arena)) {
+            if (!add_field(&result.fields, field_start, field_len, arena, config)) {
                 result.success = false;
                 result.error = "Memory allocation failed";
                 return result;
