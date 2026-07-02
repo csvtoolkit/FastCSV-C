@@ -26,15 +26,15 @@ typedef struct {
 CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_arena, CSVConfig *config);
 CSVReader* csv_reader_init_standalone(CSVConfig *config);
 void csv_reader_free(CSVReader *reader);
-CSVRecord* csv_reader_next_record(CSVReader *reader);
+CSVRecord* csv_reader_next_record(CSVReader *reader, CSVConfig *config);
 
 
-void csv_reader_rewind(CSVReader *reader);
+void csv_reader_rewind(CSVReader *reader, CSVConfig* config);
 int csv_reader_set_config(CSVReader *reader, Arena *persistent_arena, Arena *temp_arena, const CSVConfig *config);
-long csv_reader_get_record_count(CSVReader *reader);
+long csv_reader_get_record_count(CSVReader *reader, CSVConfig* config);
 long csv_reader_get_position(CSVReader *reader);
 char** csv_reader_get_headers(CSVReader *reader, int *header_count);
-int csv_reader_seek(CSVReader *reader, long position);
+int csv_reader_seek(CSVReader *reader, long position, CSVConfig *config);
 int csv_reader_has_next(CSVReader *reader);
 
 #endif 

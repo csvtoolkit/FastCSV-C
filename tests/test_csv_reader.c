@@ -33,27 +33,115 @@ void test_csv_reader_optimized() {
     assert(strcmp(reader->cached_headers[1], "Age") == 0);
     assert(strcmp(reader->cached_headers[2], "City") == 0);
 
-    CSVRecord *record1 = csv_reader_next_record(reader);
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
     assert(record1 != NULL);
     assert(record1->field_count == 3);
     assert(strcmp(record1->fields[0], "John") == 0);
     assert(strcmp(record1->fields[1], "25") == 0);
     assert(strcmp(record1->fields[2], "New York") == 0);
 
-    CSVRecord *record2 = csv_reader_next_record(reader);
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
     assert(record2 != NULL);
     assert(record2->field_count == 3);
     assert(strcmp(record2->fields[0], "Jane") == 0);
     assert(strcmp(record2->fields[1], "30") == 0);
     assert(strcmp(record2->fields[2], "Los Angeles") == 0);
 
-    CSVRecord *record3 = csv_reader_next_record(reader);
+    CSVRecord *record3 = csv_reader_next_record(reader, config);
     assert(record3 == NULL);
 
     csv_reader_free(reader);
     arena_destroy(&arena);
     remove("test_reader.csv");
     printf("✓ Optimized CSV reader test passed\n");
+}
+
+void test_csv_reader_custom_enclosure() {
+    printf("Testing custom enclosure...\n");
+    const char *test_content = "|N\"a||me|,|Age|,|City|\n|John|,|25|,|New York|\n|Jane|,|30|,|Los Angeles|\n";
+    
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_custom_enclosure.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_enclosure(config, '|');
+    
+    create_test_csv_file("test_custom_enclosure.csv", test_content);
+    
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+    assert(reader->headers_loaded == true);
+    assert(reader->cached_header_count == 3);
+    assert(strcmp(reader->cached_headers[0], "N\"a|me") == 0);
+    assert(strcmp(reader->cached_headers[1], "Age") == 0);
+    assert(strcmp(reader->cached_headers[2], "City") == 0);
+    
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
+    assert(record1 != NULL);
+    assert(record1->field_count == 3);
+    assert(strcmp(record1->fields[0], "John") == 0);
+    assert(strcmp(record1->fields[1], "25") == 0);
+    assert(strcmp(record1->fields[2], "New York") == 0);
+    
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
+    assert(record2 != NULL);
+    assert(record2->field_count == 3);
+    assert(strcmp(record2->fields[0], "Jane") == 0);
+    assert(strcmp(record2->fields[1], "30") == 0);
+    assert(strcmp(record2->fields[2], "Los Angeles") == 0);
+    
+    CSVRecord *record3 = csv_reader_next_record(reader, config);
+    assert(record3 == NULL);
+    
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_custom_enclosure.csv");
+    printf("✓ Custom enclosure test passed\n");
+}
+
+void test_csv_reader_custom_delimiter() {
+    printf("Testing custom delimiter...\n");
+    const char *test_content = "Name|Age|City\nJohn|25|New York\nJane|30|Los Angeles\n";
+    
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_custom_delimiter.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_delimiter(config, '|');
+    
+    create_test_csv_file("test_custom_delimiter.csv", test_content);
+    
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+    assert(reader->headers_loaded == true);
+    assert(reader->cached_header_count == 3);
+    assert(strcmp(reader->cached_headers[0], "Name") == 0);
+    assert(strcmp(reader->cached_headers[1], "Age") == 0);
+    assert(strcmp(reader->cached_headers[2], "City") == 0);
+    
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
+    assert(record1 != NULL);
+    assert(record1->field_count == 3);
+    assert(strcmp(record1->fields[0], "John") == 0);
+    assert(strcmp(record1->fields[1], "25") == 0);
+    assert(strcmp(record1->fields[2], "New York") == 0);
+    
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
+    assert(record2 != NULL);
+    assert(record2->field_count == 3);
+    assert(strcmp(record2->fields[0], "Jane") == 0);
+    assert(strcmp(record2->fields[1], "30") == 0);
+    assert(strcmp(record2->fields[2], "Los Angeles") == 0);
+    
+    CSVRecord *record3 = csv_reader_next_record(reader, config);
+    assert(record3 == NULL);
+    
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_custom_delimiter.csv");
+    printf("✓ Custom delimiter test passed\n");
 }
 
 void test_csv_reader_get_headers() {
@@ -99,18 +187,18 @@ void test_csv_reader_rewind() {
     assert(reader != NULL);
 
     // Read first record
-    CSVRecord *record1 = csv_reader_next_record(reader);
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
     assert(record1 != NULL);
     assert(strcmp(record1->fields[0], "Alice") == 0);
 
     // Read second record
-    CSVRecord *record2 = csv_reader_next_record(reader);
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
     assert(record2 != NULL);
     assert(strcmp(record2->fields[0], "Bob") == 0);
 
     // Rewind and read first record again
-    csv_reader_rewind(reader);
-    CSVRecord *record_after_rewind = csv_reader_next_record(reader);
+    csv_reader_rewind(reader, config);
+    CSVRecord *record_after_rewind = csv_reader_next_record(reader, config);
     assert(record_after_rewind != NULL);
     assert(strcmp(record_after_rewind->fields[0], "Alice") == 0);
 
@@ -138,17 +226,17 @@ void test_csv_reader_has_next() {
     assert(csv_reader_has_next(reader) == 1);
 
     // Read first record
-    CSVRecord *record1 = csv_reader_next_record(reader);
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
     assert(record1 != NULL);
     assert(csv_reader_has_next(reader) == 1);
 
     // Read second record
-    CSVRecord *record2 = csv_reader_next_record(reader);
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
     assert(record2 != NULL);
     assert(csv_reader_has_next(reader) == 0);
 
     // No more records
-    CSVRecord *record3 = csv_reader_next_record(reader);
+    CSVRecord *record3 = csv_reader_next_record(reader, config);
     assert(record3 == NULL);
     assert(csv_reader_has_next(reader) == 0);
 
@@ -173,16 +261,16 @@ void test_csv_reader_seek() {
     assert(reader != NULL);
 
     // Seek to position 2 (3rd data record)
-    int seek_result = csv_reader_seek(reader, 2);
+    int seek_result = csv_reader_seek(reader, 2, config);
     assert(seek_result == 1);
 
     // Should now read Charlie
-    CSVRecord *record = csv_reader_next_record(reader);
+    CSVRecord *record = csv_reader_next_record(reader, config);
     assert(record != NULL);
     assert(strcmp(record->fields[0], "Charlie") == 0);
 
     // Test seeking beyond available records
-    int invalid_seek = csv_reader_seek(reader, 100);
+    int invalid_seek = csv_reader_seek(reader, 100, config);
     assert(invalid_seek == 0);
 
     csv_reader_free(reader);
@@ -209,12 +297,12 @@ void test_csv_reader_position() {
     assert(csv_reader_get_position(reader) == 1);
 
     // Read first record
-    CSVRecord *record1 = csv_reader_next_record(reader);
+    CSVRecord *record1 = csv_reader_next_record(reader, config);
     assert(record1 != NULL);
     assert(csv_reader_get_position(reader) == 2);
 
     // Read second record
-    CSVRecord *record2 = csv_reader_next_record(reader);
+    CSVRecord *record2 = csv_reader_next_record(reader, config);
     assert(record2 != NULL);
     assert(csv_reader_get_position(reader) == 3);
 
@@ -268,11 +356,11 @@ void test_csv_reader_null_safety() {
     assert(csv_reader_get_headers(NULL, &header_count) == NULL);
     assert(csv_reader_get_headers(NULL, NULL) == NULL);
     
-    csv_reader_rewind(NULL); // Should not crash
+    csv_reader_rewind(NULL, NULL); // Should not crash
     
-    assert(csv_reader_get_record_count(NULL) == -1);
+    assert(csv_reader_get_record_count(NULL, NULL) == -1);
     assert(csv_reader_get_position(NULL) == -1);
-    assert(csv_reader_seek(NULL, 0) == 0);
+    assert(csv_reader_seek(NULL, 0, NULL) == 0);
     assert(csv_reader_has_next(NULL) == 0);
     
     csv_reader_free(NULL); // Should not crash
@@ -296,7 +384,7 @@ void test_csv_reader_get_record_count() {
     CSVReader *reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
-    long count = csv_reader_get_record_count(reader);
+    long count = csv_reader_get_record_count(reader, config);
     assert(count == 3); // Should count 3 data records, excluding header
 
     csv_reader_free(reader);
@@ -315,7 +403,7 @@ void test_csv_reader_get_record_count() {
     reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
-    count = csv_reader_get_record_count(reader);
+    count = csv_reader_get_record_count(reader, config);
     assert(count == 3); // Should count 3 records, no header to skip
 
     csv_reader_free(reader);
@@ -333,7 +421,7 @@ void test_csv_reader_get_record_count() {
     reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
-    count = csv_reader_get_record_count(reader);
+    count = csv_reader_get_record_count(reader, config);
     assert(count == 0); // Empty file should return 0
 
     csv_reader_free(reader);
@@ -353,7 +441,7 @@ void test_csv_reader_get_record_count() {
     reader = csv_reader_init_standalone(config);
     assert(reader != NULL);
 
-    count = csv_reader_get_record_count(reader);
+    count = csv_reader_get_record_count(reader, config);
     assert(count == 3); // Should skip empty lines and count 3 data records
 
     csv_reader_free(reader);
@@ -366,6 +454,8 @@ void test_csv_reader_get_record_count() {
 int main() {
     printf("Running CSV Reader tests...\n\n");
     test_csv_reader_optimized();
+    test_csv_reader_custom_delimiter();
+    test_csv_reader_custom_enclosure();
     test_csv_reader_get_headers();
     test_csv_reader_rewind();
     test_csv_reader_has_next();
