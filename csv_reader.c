@@ -20,7 +20,7 @@ CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_aren
 
     reader->persistent_arena = persistent_arena;
     reader->temp_arena = temp_arena;
-    reader->config = config;
+    reader->config = csv_config_copy(persistent_arena, config);
     reader->headers_loaded = false;
     reader->cached_header_count = 0;
     reader->cached_headers = NULL;
@@ -90,7 +90,7 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
 
     reader->persistent_arena = persistent_arena;
     reader->temp_arena = temp_arena;
-    reader->config = config;
+    reader->config = csv_config_copy(persistent_arena, config);
     reader->headers_loaded = false;
     reader->cached_header_count = 0;
     reader->cached_headers = NULL;
