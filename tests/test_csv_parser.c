@@ -173,25 +173,27 @@ void test_read_full_record() {
     rewind(test_file);
     
     Arena arena;
-    assert(arena_create(&arena, 4096) == ARENA_OK);
+    assert(arena_create(&arena, 4096*2) == ARENA_OK);
+
+    CSVConfig *config = csv_config_create(&arena);
     
     // Read first record (should handle multi-line quoted field)
-    char *record1 = read_full_record(test_file, &arena);
+    char *record1 = read_full_record(test_file, &arena, config);
     assert(record1 != NULL);
     assert(strstr(record1, "field2\nwith newline") != NULL);
     
     // Read second record (simple line)
-    char *record2 = read_full_record(test_file, &arena);
+    char *record2 = read_full_record(test_file, &arena, config);
     assert(record2 != NULL);
     assert(strcmp(record2, "simple,line,here") == 0);
     
     // Read third record (multi-line)
-    char *record3 = read_full_record(test_file, &arena);
+    char *record3 = read_full_record(test_file, &arena, config);
     assert(record3 != NULL);
     assert(strstr(record3, "multi\nline\nfield") != NULL);
     
     // No more records
-    char *record4 = read_full_record(test_file, &arena);
+    char *record4 = read_full_record(test_file, &arena, config);
     assert(record4 == NULL);
     
     fclose(test_file);
