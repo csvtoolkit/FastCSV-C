@@ -220,7 +220,7 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
     return result;
 }
 
-char* read_full_record(FILE *file, Arena *arena) {
+char* read_full_record(FILE *file, Arena *arena, const CSVConfig *config) {
     if (!file || !arena) {
         return NULL;
     }
@@ -251,14 +251,14 @@ char* read_full_record(FILE *file, Arena *arena) {
             record_capacity = new_capacity;
         }
 
-        if (c == '"') {
+        if (c == config->enclosure) {
             if (in_quotes) {
                 int next_c = fgetc(file);
-                if (next_c == '"') {
-                    record[record_len++] = '"';
-                    record[record_len++] = '"';
+                if (next_c == config->enclosure) {
+                    record[record_len++] = config->enclosure;
+                    record[record_len++] = config->enclosure;
                 } else {
-                    record[record_len++] = '"';
+                    record[record_len++] = config->enclosure;
                     in_quotes = false;
                     if (next_c != EOF) {
                         ungetc(next_c, file);
@@ -266,7 +266,7 @@ char* read_full_record(FILE *file, Arena *arena) {
                 }
             } else {
                 in_quotes = true;
-                record[record_len++] = '"';
+                record[record_len++] = config->enclosure;
             }
         } else if (c == '\n' || c == '\r') {
             if (!in_quotes) {

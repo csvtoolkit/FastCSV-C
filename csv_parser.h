@@ -59,7 +59,7 @@ typedef struct {
     ParseContext parse_ctx;
 } CSVParser;
 
-char* read_full_record(FILE *file, Arena *arena);
+char* read_full_record(FILE *file, Arena *arena, const CSVConfig *config);
 int parse_csv_line(const char *line, char **fields, int max_fields, Arena *arena, const CSVConfig *config);
 int parse_headers(const char *line, char **fields, int max_fields, Arena *arena, const CSVConfig *config);
 
