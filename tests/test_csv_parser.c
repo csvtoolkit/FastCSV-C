@@ -58,6 +58,14 @@ void test_csv_parser_escaped_quotes() {
     assert(result2.fields.count == 2);
     assert(strcmp(result2.fields.fields[0], "\"quoted\"") == 0);
     assert(strcmp(result2.fields.fields[1], "test") == 0);
+
+    printf("Testing CSV parser with preserveQuotes=true...\n");
+    config->preserveQuotes = true;
+    CSVParseResult result3 = csv_parse_line_inplace("\"Say Hello World\",normal", &arena, config, 3);
+    assert(result3.success == true);
+    assert(result3.fields.count == 2);
+    assert(strcmp(result3.fields.fields[0], "\"Say Hello World\"") == 0);
+    assert(strcmp(result3.fields.fields[1], "normal") == 0);
     
     arena_destroy(&arena);
     printf("✓ CSV parser escaped quotes test passed\n");
