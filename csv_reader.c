@@ -5,6 +5,48 @@
 #include "csv_parser.h"
 #include "arena.h"
 
+static const unsigned char UTF8_BOM[]    = {0xEF, 0xBB, 0xBF};
+static const unsigned char UTF16LE_BOM[] = {0xFF, 0xFE};
+static const unsigned char UTF16BE_BOM[] = {0xFE, 0xFF};
+static const unsigned char UTF32LE_BOM[] = {0xFF, 0xFE, 0x00, 0x00};
+static const unsigned char UTF32BE_BOM[] = {0x00, 0x00, 0xFE, 0xFF};
+
+static void skip_bom(FILE *file, CSVEncoding encoding) {
+    unsigned char header[4];
+    size_t n = 0;
+    int c;
+
+    while (n < 4 && (c = fgetc(file)) != EOF) {
+        header[n++] = (unsigned char)c;
+    }
+
+    size_t bom_len = 0;
+
+    switch (encoding) {
+        case CSV_ENCODING_UTF8:
+            if (n >= 3 && memcmp(header, UTF8_BOM, 3) == 0)   bom_len = 3;
+            break;
+        case CSV_ENCODING_UTF16BE:
+            if (n >= 2 && memcmp(header, UTF16BE_BOM, 2) == 0) bom_len = 2;
+            break;
+        case CSV_ENCODING_UTF16LE:
+            if (n >= 2 && memcmp(header, UTF16LE_BOM, 2) == 0) bom_len = 2;
+            break;
+        case CSV_ENCODING_UTF32BE:
+            if (n >= 4 && memcmp(header, UTF32BE_BOM, 4) == 0) bom_len = 4;
+            break;
+        case CSV_ENCODING_UTF32LE:
+            if (n >= 4 && memcmp(header, UTF32LE_BOM, 4) == 0) bom_len = 4;
+            break;
+        case CSV_ENCODING_ASCII:
+        case CSV_ENCODING_LATIN1:
+        default:
+            break;
+    }
+
+    fseek(file, bom_len, SEEK_SET);
+}
+
 CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_arena, CSVConfig *config) {
     void *ptr;
     ArenaResult result = arena_alloc(persistent_arena, sizeof(CSVReader), &ptr);
@@ -17,6 +59,8 @@ CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_aren
     if (!reader->file) {
         return NULL;
     }
+
+    skip_bom(reader->file, config->encoding);
 
     reader->persistent_arena = persistent_arena;
     reader->temp_arena = temp_arena;
@@ -87,6 +131,8 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
         free(reader);
         return NULL;
     }
+
+    skip_bom(reader->file, config->encoding);
 
     reader->persistent_arena = persistent_arena;
     reader->temp_arena = temp_arena;
@@ -194,6 +240,7 @@ char** csv_reader_get_headers(CSVReader *reader, int *header_count) {
 void csv_reader_rewind(CSVReader *reader) {
     if (reader && reader->file) {
         rewind(reader->file);
+        skip_bom(reader->file, reader->config->encoding);
         reader->line_number = 0;
 
         if (reader->config->hasHeader && reader->headers_loaded) {
@@ -227,6 +274,7 @@ long csv_reader_get_record_count(CSVReader *reader) {
     }
 
     rewind(reader->file);
+    skip_bom(reader->file, reader->config->encoding);
 
     long record_count = 0;
 
