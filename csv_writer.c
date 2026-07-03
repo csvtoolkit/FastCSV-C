@@ -379,10 +379,12 @@ void csv_writer_free(CSVWriter *writer) {
     if (writer->file && writer->owns_file) {
         fflush(writer->file);
         fclose(writer->file);
+        writer->file = NULL;
     }
     
     if (writer->config && writer->owns_config) {
         csv_config_free(writer->config);
+        writer->config = NULL;
     }
     
 
