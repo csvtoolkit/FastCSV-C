@@ -29,7 +29,7 @@ typedef struct {
     char path[MAX_PATH_LENGTH];
     int offset;
     bool hasHeader;
-    char limit;
+    int limit;
     CSVEncoding encoding;
     bool writeBOM;
     bool strictMode;

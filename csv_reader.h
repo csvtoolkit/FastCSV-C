@@ -19,6 +19,7 @@ typedef struct {
     int cached_header_count;
     char **cached_headers;
     long line_number;
+    long records_returned;
     CSVRecord *current_record;
     bool owns_arenas;
 } CSVReader;
