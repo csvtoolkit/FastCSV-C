@@ -136,7 +136,7 @@ CSVRecord* csv_reader_next_record(CSVReader *reader) {
         return NULL;
     }
 
-    if (reader->config->limit > 0 && reader->records_returned >= (size_t)reader->config->limit) {
+    if (reader->config->limit > 0 && reader->records_returned >= (long)reader->config->limit) {
         return NULL;
     }
 
