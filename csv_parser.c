@@ -119,8 +119,13 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
             case FIELD_START:
                 if (c == config->enclosure) {
                     state = QUOTED_FIELD;
-                    field_start = &line[pos + 1];
-                    field_len = 0;
+                    if (!config->preserveQuotes) {
+                        field_start = &line[pos + 1];
+                        field_len = 0;
+                    } else {
+                        field_start = &line[pos];
+                        field_len = 1;
+                    }
                 } else if (c == config->delimiter) {
                     if (!add_field(&result.fields, "", 0, arena)) {
                         result.success = false;
@@ -159,6 +164,9 @@ CSVParseResult csv_parse_line_inplace(const char *line, Arena *arena, const CSVC
                         field_len += 2;
                         pos++;
                     } else {
+                        if (config->preserveQuotes) {
+                            field_len++;
+                        }
                         state = FIELD_END;
                     }
                 } else {
