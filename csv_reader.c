@@ -5,6 +5,8 @@
 #include "csv_parser.h"
 #include "arena.h"
 
+static void skip_records(CSVReader *reader, int count);
+
 CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_arena, CSVConfig *config) {
     void *ptr;
     ArenaResult result = arena_alloc(persistent_arena, sizeof(CSVReader), &ptr);
@@ -26,6 +28,7 @@ CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_aren
     reader->cached_headers = NULL;
     reader->line_number = 0;
     reader->current_record = NULL;
+    reader->records_returned = 0;
     reader->owns_arenas = false;
 
     if (config->hasHeader) {
@@ -40,6 +43,8 @@ CSVReader* csv_reader_init_with_config(Arena *persistent_arena, Arena *temp_aren
             }
         }
     }
+
+    skip_records(reader, config->offset);
 
     return reader;
 }
@@ -96,6 +101,7 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
     reader->cached_headers = NULL;
     reader->line_number = 0;
     reader->current_record = NULL;
+    reader->records_returned = 0;
     reader->owns_arenas = true;
 
     if (config->hasHeader) {
@@ -111,11 +117,26 @@ CSVReader* csv_reader_init_standalone(CSVConfig *config) {
         }
     }
 
+    skip_records(reader, config->offset);
+
     return reader;
+}
+
+static void skip_records(CSVReader *reader, int count) {
+    for (int i = 0; i < count; i++) {
+        arena_reset(reader->temp_arena);
+        char *line = read_full_record(reader->file, reader->temp_arena);
+        if (!line) break;
+        reader->line_number++;
+    }
 }
 
 CSVRecord* csv_reader_next_record(CSVReader *reader) {
     if (!reader || !reader->file) {
+        return NULL;
+    }
+
+    if (reader->config->limit > 0 && reader->records_returned >= (size_t)reader->config->limit) {
         return NULL;
     }
 
@@ -127,6 +148,7 @@ CSVRecord* csv_reader_next_record(CSVReader *reader) {
     }
 
     reader->line_number++;
+
     CSVParseResult result = csv_parse_line_inplace(line, reader->temp_arena, reader->config, reader->line_number);
     if (!result.success) {
         return NULL;
@@ -142,6 +164,7 @@ CSVRecord* csv_reader_next_record(CSVReader *reader) {
     record->fields = result.fields.fields;
     record->field_count = result.fields.count;
     reader->current_record = record;
+    reader->records_returned++;
 
     return record;
 }
@@ -195,6 +218,7 @@ void csv_reader_rewind(CSVReader *reader) {
     if (reader && reader->file) {
         rewind(reader->file);
         reader->line_number = 0;
+        reader->records_returned = 0;
 
         if (reader->config->hasHeader && reader->headers_loaded) {
             char *line = read_full_record(reader->file, reader->persistent_arena);
@@ -202,6 +226,8 @@ void csv_reader_rewind(CSVReader *reader) {
                 reader->line_number = 1;
             }
         }
+
+        skip_records(reader, reader->config->offset);
     }
 }
 
