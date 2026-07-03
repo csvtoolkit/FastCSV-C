@@ -363,6 +363,387 @@ void test_csv_reader_get_record_count() {
     printf("✓ csv_reader_get_record_count test passed\n");
 }
 
+void test_csv_reader_offset() {
+    printf("Testing csv_reader offset...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\n";
+    create_test_csv_file("test_offset.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_offset.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // First record should be Charlie (skipped Alice and Bob)
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Charlie") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "David") == 0);
+
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 != NULL);
+    assert(strcmp(record3->fields[0], "Eve") == 0);
+
+    // No more records
+    CSVRecord *record4 = csv_reader_next_record(reader);
+    assert(record4 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_offset.csv");
+    printf("✓ csv_reader offset test passed\n");
+}
+
+void test_csv_reader_offset_no_header() {
+    printf("Testing csv_reader offset without header...\n");
+    const char *test_content = "Alice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\n";
+    create_test_csv_file("test_offset_no_header.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_offset_no_header.csv");
+    csv_config_set_has_header(config, false);
+    csv_config_set_offset(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // First record should be Charlie (skipped Alice and Bob)
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Charlie") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "David") == 0);
+
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 != NULL);
+    assert(strcmp(record3->fields[0], "Eve") == 0);
+
+    CSVRecord *record4 = csv_reader_next_record(reader);
+    assert(record4 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_offset_no_header.csv");
+    printf("✓ csv_reader offset without header test passed\n");
+}
+
+void test_csv_reader_limit() {
+    printf("Testing csv_reader limit...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\n";
+    create_test_csv_file("test_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_limit(config, 3);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Alice") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "Bob") == 0);
+
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 != NULL);
+    assert(strcmp(record3->fields[0], "Charlie") == 0);
+
+    // Limit reached, should return NULL
+    CSVRecord *record4 = csv_reader_next_record(reader);
+    assert(record4 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_limit.csv");
+    printf("✓ csv_reader limit test passed\n");
+}
+
+void test_csv_reader_offset_and_limit() {
+    printf("Testing csv_reader offset and limit together...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\nFrank,50\n";
+    create_test_csv_file("test_offset_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_offset_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 1);
+    csv_config_set_limit(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // First record should be Bob (skipped Alice)
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Bob") == 0);
+
+    // Second record should be Charlie
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "Charlie") == 0);
+
+    // Limit reached, should return NULL
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_offset_limit.csv");
+    printf("✓ csv_reader offset and limit test passed\n");
+}
+
+void test_csv_reader_offset_rewind() {
+    printf("Testing csv_reader offset with rewind...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\n";
+    create_test_csv_file("test_offset_rewind.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_offset_rewind.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 1);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // First record should be Bob (skipped Alice)
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Bob") == 0);
+
+    // Rewind - offset should still apply
+    csv_reader_rewind(reader);
+    CSVRecord *record_after_rewind = csv_reader_next_record(reader);
+    assert(record_after_rewind != NULL);
+    assert(strcmp(record_after_rewind->fields[0], "Bob") == 0);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_offset_rewind.csv");
+    printf("✓ csv_reader offset with rewind test passed\n");
+}
+
+void test_csv_reader_seek_with_offset() {
+    printf("Testing csv_reader seek with offset...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\nFrank,50\n";
+    create_test_csv_file("test_seek_offset.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_seek_offset.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // After init: offset skipped Alice, Bob → file at Charlie
+    // seek(1): rewind + offset (Alice, Bob) + skip 1 (Charlie) → file at David
+    int seek_result = csv_reader_seek(reader, 1);
+    assert(seek_result == 1);
+
+    CSVRecord *record = csv_reader_next_record(reader);
+    assert(record != NULL);
+    assert(strcmp(record->fields[0], "David") == 0);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_seek_offset.csv");
+    printf("✓ csv_reader seek with offset test passed\n");
+}
+
+void test_csv_reader_seek_with_limit() {
+    printf("Testing csv_reader seek with limit...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\nFrank,50\n";
+    create_test_csv_file("test_seek_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_seek_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_limit(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // seek(3): rewind + skip Alice, Bob, Charlie → file at David
+    int seek_result = csv_reader_seek(reader, 3);
+    assert(seek_result == 1);
+
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "David") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "Eve") == 0);
+
+    // Limit reached
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_seek_limit.csv");
+    printf("✓ csv_reader seek with limit test passed\n");
+}
+
+void test_csv_reader_seek_with_offset_and_limit() {
+    printf("Testing csv_reader seek with offset and limit...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\nFrank,50\n";
+    create_test_csv_file("test_seek_offset_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_seek_offset_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 2);
+    csv_config_set_limit(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // seek(1): rewind + offset (Alice, Bob) + skip 1 (Charlie) → file at David
+    int seek_result = csv_reader_seek(reader, 1);
+    assert(seek_result == 1);
+
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "David") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "Eve") == 0);
+
+    // Limit reached
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_seek_offset_limit.csv");
+    printf("✓ csv_reader seek with offset and limit test passed\n");
+}
+
+void test_csv_reader_rewind_with_limit() {
+    printf("Testing csv_reader rewind with limit...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\n";
+    create_test_csv_file("test_rewind_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_rewind_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_limit(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Alice") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "Bob") == 0);
+
+    // Limit reached
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 == NULL);
+
+    // Rewind - limit resets
+    csv_reader_rewind(reader);
+
+    CSVRecord *record4 = csv_reader_next_record(reader);
+    assert(record4 != NULL);
+    assert(strcmp(record4->fields[0], "Alice") == 0);
+
+    CSVRecord *record5 = csv_reader_next_record(reader);
+    assert(record5 != NULL);
+    assert(strcmp(record5->fields[0], "Bob") == 0);
+
+    CSVRecord *record6 = csv_reader_next_record(reader);
+    assert(record6 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_rewind_limit.csv");
+    printf("✓ csv_reader rewind with limit test passed\n");
+}
+
+void test_csv_reader_rewind_with_offset_and_limit() {
+    printf("Testing csv_reader rewind with offset and limit...\n");
+    const char *test_content = "Name,Age\nAlice,25\nBob,30\nCharlie,35\nDavid,40\nEve,45\nFrank,50\n";
+    create_test_csv_file("test_rewind_offset_limit.csv", test_content);
+
+    Arena arena;
+    assert(arena_create(&arena, 4096) == ARENA_OK);
+    CSVConfig *config = csv_config_create(&arena);
+    csv_config_set_path(config, "test_rewind_offset_limit.csv");
+    csv_config_set_has_header(config, true);
+    csv_config_set_offset(config, 2);
+    csv_config_set_limit(config, 2);
+
+    CSVReader *reader = csv_reader_init_standalone(config);
+    assert(reader != NULL);
+
+    // First window: Charlie, David
+    CSVRecord *record1 = csv_reader_next_record(reader);
+    assert(record1 != NULL);
+    assert(strcmp(record1->fields[0], "Charlie") == 0);
+
+    CSVRecord *record2 = csv_reader_next_record(reader);
+    assert(record2 != NULL);
+    assert(strcmp(record2->fields[0], "David") == 0);
+
+    CSVRecord *record3 = csv_reader_next_record(reader);
+    assert(record3 == NULL);
+
+    // Rewind - offset re-applies, limit resets
+    csv_reader_rewind(reader);
+
+    // Same window again: Charlie, David
+    CSVRecord *record4 = csv_reader_next_record(reader);
+    assert(record4 != NULL);
+    assert(strcmp(record4->fields[0], "Charlie") == 0);
+
+    CSVRecord *record5 = csv_reader_next_record(reader);
+    assert(record5 != NULL);
+    assert(strcmp(record5->fields[0], "David") == 0);
+
+    CSVRecord *record6 = csv_reader_next_record(reader);
+    assert(record6 == NULL);
+
+    csv_reader_free(reader);
+    arena_destroy(&arena);
+    remove("test_rewind_offset_limit.csv");
+    printf("✓ csv_reader rewind with offset and limit test passed\n");
+}
+
 int main() {
     printf("Running CSV Reader tests...\n\n");
     test_csv_reader_optimized();
@@ -374,6 +755,16 @@ int main() {
     test_csv_reader_set_config();
     test_csv_reader_get_record_count();
     test_csv_reader_null_safety();
+    test_csv_reader_offset();
+    test_csv_reader_offset_no_header();
+    test_csv_reader_limit();
+    test_csv_reader_offset_and_limit();
+    test_csv_reader_offset_rewind();
+    test_csv_reader_seek_with_offset();
+    test_csv_reader_seek_with_limit();
+    test_csv_reader_seek_with_offset_and_limit();
+    test_csv_reader_rewind_with_limit();
+    test_csv_reader_rewind_with_offset_and_limit();
     printf("\n✅ All CSV Reader tests passed!\n");
     return 0;
 } 
