@@ -61,9 +61,6 @@ make test
 
 # Optional: Run memory safety checks
 make valgrind
-
-# Performance benchmarks
-make benchmark
 ```
 
 ### Build Targets
@@ -75,7 +72,6 @@ make benchmark
 | `make static` | Build static library (`libcsv.a`) |
 | `make test` | Run all tests |
 | `make valgrind` | Run tests with Valgrind |
-| `make benchmark` | Run performance benchmarks |
 | `make clean` | Clean build artifacts |
 | `make help` | Show all available targets |
 
@@ -92,6 +88,9 @@ int main() {
     Arena arena;
     arena_create(&arena, 4096);
     
+    Arena temp_arena;                              
+    arena_create(&temp_arena, 1024 * 1024);   
+    
     // Create configuration with encoding support
     CSVConfig *config = csv_config_create(&arena);
     csv_config_set_path(config, "data.csv");
@@ -99,8 +98,8 @@ int main() {
     csv_config_set_encoding(config, CSV_ENCODING_UTF8);
     
     // Initialize reader
-    CSVReader *reader = csv_reader_init_with_config(&arena, config);
-    
+    CSVReader *reader = csv_reader_init_with_config(&arena, &temp_arena, config);
+
     // Get headers
     int header_count;
     char **headers = csv_reader_get_headers(reader, &header_count);
@@ -109,7 +108,7 @@ int main() {
         printf("%s ", headers[i]);
     }
     printf("\n");
-    
+
     // Read records with navigation support
     while (csv_reader_has_next(reader)) {
         CSVRecord *record = csv_reader_next_record(reader);
@@ -120,10 +119,11 @@ int main() {
             }
         }
     }
-    
+
     // Cleanup
     csv_reader_free(reader);
     arena_destroy(&arena);
+    arena_destroy(&temp_arena);
     return 0;
 }
 ```
@@ -370,10 +370,6 @@ make test-reader
 # Memory leak detection
 make valgrind
 make valgrind-all
-
-# Performance testing
-make benchmark
-make stress-test
 ```
 
 ### Test Results Summary
